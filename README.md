@@ -1,1 +1,1 @@
-# ALPR
+# ALPR (Automatic License Plate Recognition)
