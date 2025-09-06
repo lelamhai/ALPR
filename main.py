@@ -5,7 +5,7 @@ DISTANCE = 10.0
 
 def main():
 
-    imgOG = cv.imread("data/vn5.png",1)
+    imgOG = cv.imread("data/16.jpg",1)
     grayscale = cv.cvtColor(imgOG, cv.COLOR_BGR2GRAY)
     blurred = cv.GaussianBlur(grayscale, (5,5), 0)
     edged = cv.Canny(blurred, 10, 200)
