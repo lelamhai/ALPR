@@ -1,100 +1,84 @@
-import cv2 as cv
-import easyocr
+import cv2
+import numpy as np
+from PIL import Image, ImageFilter
+import math
 
-DISTANCE = 10.0
+# Mở ảnh và resize
+HinhGocPIL = Image.open('data/new/1.jpg')
+imgHinhGocPIL = HinhGocPIL.resize((500, 350))
+Width, Height = imgHinhGocPIL.size
 
-def main():
+##########################################
+#               TIỀN XỬ LÍ ẢNH           #
+##########################################
 
-    imgOG = cv.imread("data/16.jpg",1)
-    grayscale = cv.cvtColor(imgOG, cv.COLOR_BGR2GRAY)
-    blurred = cv.GaussianBlur(grayscale, (5,5), 0)
-    edged = cv.Canny(blurred, 10, 200)
+def find_max(a, b, c):
+    max = a
+    if max < b: max = b
+    if max < c: max = c
+    return max
 
-    contours, _ = cv.findContours(edged, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key = cv.contourArea, reverse = True)[:10]
+def find_min(a, b, c):
+    min = a
+    if min > b: min = b
+    if min > c: min = c
+    return min
 
+# Chuyển sang mức xám theo phương pháp Lightness
+Lightness = imgHinhGocPIL.convert()
+for x in range(0, Width):
+    for y in range(0, Height):
+        r, g, b = imgHinhGocPIL.getpixel((x, y))
+        maxgray = find_max(r, g, b)
+        mingray = find_min(r, g, b)
+        Gray = (int)((maxgray + mingray) / 2)
+        Lightness.putpixel((x, y), (Gray, Gray, Gray))
 
-    prev_box = None
-    for i, c in enumerate(contours):
-        peri   = cv.arcLength(c, True)
-        approx = cv.approxPolyDP(c, 0.02 * peri, True)
-        if len(approx) == 4:                     # ứng viên hình chữ nhật
-            x, y, w, h = cv.boundingRect(approx)
-
-            if prev_box is not None:
-                px, py, pw, ph = prev_box
-                if abs(px - x) < DISTANCE and abs(py - y) < DISTANCE and abs(pw - w) < DISTANCE and abs(ph - h) < DISTANCE:
-                    print("Near")
-                    continue
-            prev_box = x, y, w, h
-
-            # chặn biên cho an toàn
-            H, W = imgOG.shape[:2]
-            x0, y0 = max(0, x), max(0, y)
-            x1, y1 = min(W, x + w), min(H, y + h)
-
-            roi = imgOG[y0:y1, x0:x1].copy()       # hoặc dùng grayscale nếu muốn ảnh xám
-            cv.imshow(f"plate_{i}", roi)        # hiển thị từng crop
-            reader = easyocr.Reader(['en'] , gpu=False)
-            result = reader.readtext(roi)
-            if result:
-                full_text = " ".join([res[-2] for res in result])
-                print("=======: " + full_text)
-            else:
-                print("Empty")
+imgAnhGray = np.array(Lightness)
 
 
-    cv.imshow("imgOG", imgOG)
-    cv.imshow("grayscale", grayscale)
-    cv.imshow("blurred", blurred)
-    cv.imshow("edged", edged)
 
-    # plate = []
-    # for c in contours:
-    #     perimeter = cv.arcLength(c, True)
-    #     approximation = cv.approxPolyDP(c, 0.02 * perimeter, True)
-    #     if len(approximation) == 4: # rectangle
-    #         number_plate_shape = approximation
-    #         break
+Sx = np.array([[-1, -2, -1],
+               [ 0,  0,  0],
+               [ 1,  2,  1]])
 
+Sy = np.array([[ 1,  0, -1],
+               [ 2,  0, -2],
+               [ 1,  0, -1]])
 
-    # (x, y, w, h) = cv.boundingRect(number_plate_shape)
-    # img_crop = grayscale[y:y + h, x:x + w]
-    # cv.imshow("number_plate", img_crop)
-    # reader = easyocr.Reader(['en'] , gpu=False)
-    # result = reader.readtext(img_crop)
+D0 = 200
+EdgeSobel = Lightness.convert()
+for x in range(1, Width - 1):
+    for y in range(1, Height - 1):
+        XR = 0
+        YR = 0
+        for i in range(x - 1, x + 2):
+            for j in range(y - 1, y + 2):
+                r, g, b = Lightness.getpixel((i, j))
+                XR += r * Sx[i - (x - 1), j - (y - 1)]
+                YR += r * Sy[i - (x - 1), j - (y - 1)]
+        Mag = math.sqrt(XR * XR + YR * YR)
+        if Mag <= D0:
+            Mag = 0
+        else:
+            Mag = 255
+        EdgeSobel.putpixel((x, y), (Mag, Mag, Mag))
 
-    # if result:
-    #     full_text = " ".join([res[-2] for res in result])
-    #     print("=======: " + full_text)
-    # else:
-    #     print("Empty")
+imgEdgeSobel = np.array(EdgeSobel)
 
-    # cv.imshow("imgOG", imgOG)
-    # cv.imshow("grayscale", grayscale)
-    # cv.imshow("blurred", blurred)
-    # cv.imshow("edged", edged)
-    # cv.imshow("number_plate", img_crop)
+# Tính biên bằng Canny
+imgEdgedCanny = cv2.Canny(imgAnhGray, 30, 200)
 
-    # rois = []
-    # for i, c in enumerate(contours):
-    #     peri   = cv2.arcLength(c, True)
-    #     approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+# Chuyển ảnh gốc về numpy array để hiển thị
+imgHinhGoc = np.array(imgHinhGocPIL)
 
-    #     if len(approx) == 4:                     # ứng viên hình chữ nhật
-    #         x, y, w, h = cv2.boundingRect(approx)
+##########################################
+#                HIỂN THỊ ẢNH            #
+##########################################
+cv2.imshow('Hinh Anh Goc', imgHinhGoc)
+cv2.imshow('Hinh Anh Gray', imgAnhGray)
+cv2.imshow('Nhan Dang Duong Bien Dung Phuong Phap Sobel', imgEdgeSobel)
+cv2.imshow('Nhan Dang Duong Bien Dung Phuong Phap Canny', imgEdgedCanny)
 
-    #         # chặn biên cho an toàn
-    #         H, W = img.shape[:2]
-    #         x0, y0 = max(0, x), max(0, y)
-    #         x1, y1 = min(W, x + w), min(H, y + h)
-
-    #         roi = img[y0:y1, x0:x1].copy()       # hoặc dùng grayscale nếu muốn ảnh xám
-    #         rois.append(roi)
-    #         cv2.imshow(f"plate_{i}", roi)        # hiển thị từng crop
-
-
-    
-if __name__ == '__main__':
-    main()
-    cv.waitKey()
+cv2.waitKey(0)
+cv2.destroyAllWindows()
