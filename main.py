@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageFilter
 import math
+import matplotlib.pyplot as plt
 
 def Lightness(imgOG: Image.Image, width, height):
     imgLightness = Image.new("L", (width, height))
@@ -14,12 +15,11 @@ def Lightness(imgOG: Image.Image, width, height):
             imgLightness.putpixel((x, y), Gray)
     return np.array(imgLightness)
 
-
 def Sobel(imgGray: Image.Image, width, height):
     Sx = np.array([[-1, -2, -1],[ 0, 0, 0],[ 1, 2, 1]])
     Sy = np.array([[ 1, 0, -1],[ 2, 0, -2],[ 1, 0, -1]])
     
-    D0 = 200
+    D0 = 127
     EdgeSobel = imgGray.convert()
     for x in range(1, width - 1):
         for y in range(1, height - 1):
@@ -43,20 +43,47 @@ def Sobel(imgGray: Image.Image, width, height):
 
 
 def main():
-    PATH = 'assets/imgs/17.png'
+    PATH = 'assets/imgs/5.png'
     imgOG = Image.open(PATH)
     width, height = imgOG.size
     imgLightness = Lightness(imgOG, width, height)
     imgHistogram = cv2.equalizeHist(imgLightness)
     imgGaussianBlur = cv2.GaussianBlur(imgHistogram, (5,5), 0)
-    imgSobel = Sobel(Image.fromarray(imgGaussianBlur), width, height)
-       
+    _, thresholded = cv2.threshold(imgGaussianBlur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    kernel = np.ones((5, 5), np.uint8)
+    eroded = cv2.erode(thresholded, kernel, iterations=1)
+
+    imgSobel = Sobel(Image.fromarray(eroded), width, height)
+
 
     # cv2.imshow('Image', imgRGB)
     cv2.imshow('Lightness', imgLightness)
     cv2.imshow('Histogram', imgHistogram)
     cv2.imshow('GaussianBlur', imgGaussianBlur)
+    cv2.imshow('Thresholded', thresholded)
+    cv2.imshow('Erosion', eroded)
     cv2.imshow('Sobel', imgSobel)
+
+    plt.figure(figsize=(10, 5))
+    # Histogram trước khi cân bằng
+    plt.subplot(1, 2, 1)
+    plt.hist(imgLightness.ravel(), bins=256, range=[0, 256], color='blue', alpha=0.7)
+    plt.title('Histogram Trước Khi Cân Bằng')
+    plt.xlabel('Giá trị pixel')
+    plt.ylabel('Tần suất')
+
+    # Histogram sau khi cân bằng
+    plt.subplot(1, 2, 2)
+    plt.hist(imgHistogram.ravel(), bins=256, range=[0, 256], color='red', alpha=0.7)
+    plt.title('Histogram Sau Khi Cân Bằng')
+    plt.xlabel('Giá trị pixel')
+    plt.ylabel('Tần suất')
+
+    plt.tight_layout()
+    plt.show() 
+
+    
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
