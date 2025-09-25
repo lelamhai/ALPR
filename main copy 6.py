@@ -4,11 +4,6 @@ from PIL import Image, ImageFilter
 import math
 import matplotlib.pyplot as plt
 
-import os
-out_dir = "outputs/plates"
-os.makedirs(out_dir, exist_ok=True)
-
-
 def GrayImage(imgOG):
     mgHue, imgSaturation, imgValue = cv2.split(imgOG)
     return imgValue
@@ -39,8 +34,9 @@ def Sobel(imgGray: Image.Image, width, height):
 
     return EdgeSobel
 
+
 def main():
-    imgOrigin = cv2.imread("assets/imgs/21.1.png")
+    imgOrigin = cv2.imread("assets/imgs/1.1.jpg")
     gray_image = cv2.cvtColor(imgOrigin, cv2.COLOR_BGR2GRAY)
     width, height = np.array(gray_image).shape
 
@@ -50,37 +46,28 @@ def main():
     kernel = np.ones((5,5), np.uint8)
     dilated_image = cv2.dilate(edged, kernel, iterations=1)
     contours, hierarchy = cv2.findContours(dilated_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key = cv2.contourArea, reverse = True) [:10]
+    contours = sorted(contours, key = cv2.contourArea, reverse = True) [0]
 
-
-    crops = []
+    candidates  = []
     i=0
     for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        peri = cv2.arcLength(c, True) 
-        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-        area = cv2.contourArea(c)
-        print(i)
-        i+=1
-
-        if area < 500:                  # bỏ nhiễu rất nhỏ (tùy ảnh)
-            continue
-        if w > width or h > height:
-            continue
-
-        ar = w / float(h)
-        print(f"{i}: {ar:.2f}") 
-        # if (ar >= 1.0):      # dải AR hợp lý cho biển VN (tùy chỉnh)
+        peri = cv2.arcLength(c, True)  # Tính chu vi
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)  # làm xấp xỉ đa giác, chỉ giữ contour có 4 cạnh
+        [x, y, w, h] = cv2.boundingRect(approx.copy())
+        if (len(approx) == 4):
+            candidates.append(approx)
+            cv2.putText(imgOrigin, str(len(approx.copy())), (x, y), cv2.FONT_HERSHEY_DUPLEX, 2, (0, 255, 0), 3)
+        # i+=1
+        # if area < 500:
         #     continue
+        # ar = w / float(h)
         
-        [x, y, w, h] = cv2.boundingRect(approx)
-        plate_crop = imgOrigin[y:y+h, x:x+w]
-        
-        crop = imgOrigin[y:y+h, x:x+w].copy()
-        crops.append(crop)
-        cv2.imwrite(os.path.join(out_dir, f"plate_{len(crops):02d}.png"), crop)
-        
-    
+        # if not (2.0 <= ar <= 6.0):      # dải AR hợp lý cho biển VN (tùy chỉnh)
+        #     continue
+        # if w < 0.08*width or w > 0.95*width:  # loại vùng quá nhỏ/quá lớn so với ảnh
+        #     continue
+        # score = area * (1.0 - abs(ar - 3.5)/3.5)
+        # candidates.append(c)
 
     image2 = imgOrigin.copy()
     cv2.drawContours(image2,contours,-1,(0,255,0),3)
@@ -90,6 +77,8 @@ def main():
     cv2.imshow("dilated_image",dilated_image)
     cv2.imshow("Top 30 contours",image2)
     cv2.waitKey(0)
+
+
 
 if __name__ == "__main__":
     main()

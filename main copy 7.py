@@ -39,8 +39,9 @@ def Sobel(imgGray: Image.Image, width, height):
 
     return EdgeSobel
 
+
 def main():
-    imgOrigin = cv2.imread("assets/imgs/21.1.png")
+    imgOrigin = cv2.imread("assets/imgs/6.png")
     gray_image = cv2.cvtColor(imgOrigin, cv2.COLOR_BGR2GRAY)
     width, height = np.array(gray_image).shape
 
@@ -49,8 +50,8 @@ def main():
     edged = cv2.Canny(thresholded_otsu, 10, 200)
     kernel = np.ones((5,5), np.uint8)
     dilated_image = cv2.dilate(edged, kernel, iterations=1)
-    contours, hierarchy = cv2.findContours(dilated_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key = cv2.contourArea, reverse = True) [:10]
+    contours, hierarchy = cv2.findContours(dilated_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key = cv2.contourArea, reverse = True) [1]
 
 
     crops = []
@@ -65,9 +66,6 @@ def main():
 
         if area < 500:                  # bỏ nhiễu rất nhỏ (tùy ảnh)
             continue
-        if w > width or h > height:
-            continue
-
         ar = w / float(h)
         print(f"{i}: {ar:.2f}") 
         # if (ar >= 1.0):      # dải AR hợp lý cho biển VN (tùy chỉnh)
@@ -90,6 +88,8 @@ def main():
     cv2.imshow("dilated_image",dilated_image)
     cv2.imshow("Top 30 contours",image2)
     cv2.waitKey(0)
+
+
 
 if __name__ == "__main__":
     main()
