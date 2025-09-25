@@ -43,21 +43,22 @@ def Sobel(imgGray: Image.Image, width, height):
 
 
 def main():
-    PATH = 'assets/imgs/5.png'
-    imgOG = Image.open(PATH)
+    imgOG = cv2.imread("assets/imgs/16.jpg")
+    img_rgb = cv2.cvtColor(imgOG, cv2.COLOR_BGR2RGB)
+    imgOG = Image.fromarray(img_rgb)
     width, height = imgOG.size
+
     imgLightness = Lightness(imgOG, width, height)
     imgHistogram = cv2.equalizeHist(imgLightness)
     imgGaussianBlur = cv2.GaussianBlur(imgHistogram, (5,5), 0)
     _, thresholded = cv2.threshold(imgGaussianBlur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
     kernel = np.ones((5, 5), np.uint8)
     eroded = cv2.erode(thresholded, kernel, iterations=1)
 
     imgSobel = Sobel(Image.fromarray(eroded), width, height)
 
 
-    # cv2.imshow('Image', imgRGB)
+    cv2.imshow('Image', img_rgb[..., ::-1])
     cv2.imshow('Lightness', imgLightness)
     cv2.imshow('Histogram', imgHistogram)
     cv2.imshow('GaussianBlur', imgGaussianBlur)
@@ -79,7 +80,6 @@ def main():
     plt.title('Histogram Sau Khi Cân Bằng')
     plt.xlabel('Giá trị pixel')
     plt.ylabel('Tần suất')
-
     plt.tight_layout()
     plt.show() 
 
