@@ -11,19 +11,13 @@ os.makedirs(out_dir, exist_ok=True)
 PIEXL = 15
 
 def Processing(src):
-    S1 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 1), (1, 0))
-    S1 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1), (3, 0))
-
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-    # BlackHat transform
     blackhat = cv2.morphologyEx(src, cv2.MORPH_BLACKHAT, kernel)
     bothat = cv2.normalize(blackhat, blackhat, 0, 255, cv2.NORM_MINMAX)
 
+    mean_val = cv2.mean(bothat)[0]
+    thresh_val = int(10 * mean_val)
 
-    mean_val = cv2.mean(bothat)[0]                 # tính trung bình ảnh
-    thresh_val = int(10 * mean_val)                # threshold = 10 * mean
-
-    # thresholded: ảnh output
     _, thresholded = cv2.threshold(bothat, thresh_val, 255, cv2.THRESH_BINARY)
 
 
@@ -38,9 +32,10 @@ def GrayImage(imgOG):
     return imgValue
 
 def main():
-    imgOrigin = cv2.imread("assets/imgs/2.jpg")
+    imgOrigin = cv2.imread("assets/imgs/1.jpg")
     imgGrayscale = GrayImage(imgOrigin)
     Processing(imgGrayscale)
+
     cv2.waitKey(0)
 
 if __name__ == "__main__":
