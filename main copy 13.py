@@ -67,7 +67,7 @@ def FinderPlate(imgThresh):
 
 
 def main():
-    imgOrigin = cv2.imread("assets/imgs/7.png")
+    imgOrigin = cv2.imread("assets/imgs/17.png")
     gray_image = cv2.cvtColor(imgOrigin, cv2.COLOR_BGR2GRAY)
     imgGrayscale = GrayImage(imgOrigin)
     Processing(imgGrayscale)
