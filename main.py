@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 import math
 import matplotlib.pyplot as plt
+import easyocr
 import os
 out_dir = "outputs/plates"
 os.makedirs(out_dir, exist_ok=True)
@@ -75,46 +76,11 @@ def Morphology(imgBinarization):
     return img
 
 
-def ShowPlate(imgOG, imgProcessing):
-    width, height = np.array(imgProcessing).shape
-
-    # --- CHUYỂN ẢNH SANG MÀU ---
-    imgProcessing = cv2.cvtColor(imgProcessing, cv2.COLOR_GRAY2BGR)
-
-    contours, hierarchy = cv2.findContours(
-        cv2.cvtColor(imgProcessing, cv2.COLOR_BGR2GRAY),
-        cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-    i = 0
-
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        if w >= width or h >= height:
-            continue
-
-        radio = (width * height) / area
-
-        # --- VẼ CONTOUR ---
-        cv2.drawContours(imgProcessing, [c], -1, (0, 255, 255), 2)
-
-        # --- GHI SỐ i MÀU ĐỎ, CÓ VIỀN ĐEN ---
-        cv2.putText(imgProcessing, str(i), (x, y - 5),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 4)
-        cv2.putText(imgProcessing, str(i), (x, y - 5),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 255), 2)
-
-        i += 1
-        cv2.imshow("FinderPlate", imgProcessing)
-
-
-
-def FinderPlate(imgOG, imgProcessing):
+def FinderPlate(imgProcessing):
     width, height = np.array(imgProcessing).shape
     contours, hierarchy = cv2.findContours(imgProcessing, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     contours = sorted(contours, key = cv2.contourArea, reverse = True)
-    crops = []
+    boxes = []
     i=0
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
@@ -128,16 +94,27 @@ def FinderPlate(imgOG, imgProcessing):
         
         radio =  (width*height)/area
 
-        print(f"{i}: {radio} : {ar:.2f} : {w:.2f} : {h:.2f}")
-        i+=1
-        if(radio > 30 and radio <270):
-            if(ar>1.2 and ar<6):
-                if(w>100 and w<550 and h>40 and h<250):
-                    crop = imgOG[y:y+h, x:x+w].copy()
-                    crops.append(crop)
-                    cv2.imwrite(os.path.join(out_dir, f"plate_{len(crops):02d}.png"), crop)
+        if 30 < radio < 270:
+            if 1.2 < ar < 6:
+                if 100 < w < 550 and 40 < h < 250:
+                    boxes.append((x, y, w, h))
+
+    return boxes
 
 
+def DetectCharsInPlate(boxes, imgGrayscale):
+    reader = easyocr.Reader(['en'], gpu=False)
+    results = []
+
+    for idx, (x, y, w, h) in enumerate(boxes):
+        img_crop = imgGrayscale[y:y + h, x:x + w]
+        result = reader.readtext(img_crop)
+
+        if result:
+            full_text = " ".join([res[-2] for res in result])
+            results.append((full_text, img_crop))
+
+    return results
 
 
 def main():
@@ -146,7 +123,12 @@ def main():
     imgGrayscale = GrayImage(imgOrigin)
     imgBinarization = Binarization(imgGrayscale)
     imgMorphology = Morphology(imgBinarization)
-    FinderPlate(imgOrigin, imgMorphology)
+    boxesPlate = FinderPlate(imgMorphology)
+    result = DetectCharsInPlate(boxesPlate, imgGrayscale)
+
+    for i, (text, crop) in enumerate(result):
+        print(f"Plate {i}: {text}")
+        cv2.imshow(f"Crop {i}", crop)
 
     cv2.waitKey(0)
 
