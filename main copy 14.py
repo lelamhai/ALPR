@@ -128,24 +128,24 @@ def FinderPlate(imgOG, imgProcessing):
         
         radio =  (width*height)/area
 
-        print(f"{i}: {radio} : {ar:.2f} : {w:.2f} : {h:.2f}")
+        print(f"{i}: {radio} : {ar:.2f}") 
         i+=1
         if(radio > 30 and radio <270):
-            if(ar>1.2 and ar<6):
-                if(w>100 and w<550 and h>40 and h<250):
-                    crop = imgOG[y:y+h, x:x+w].copy()
-                    crops.append(crop)
-                    cv2.imwrite(os.path.join(out_dir, f"plate_{len(crops):02d}.png"), crop)
+            if(ar<2.6 and ar<7):
+                crop = imgOG[y:y+h, x:x+w].copy()
+                crops.append(crop)
+                cv2.imwrite(os.path.join(out_dir, f"plate_{len(crops):02d}.png"), crop)
 
 
 
 
 def main():
-    PATH_IMAGE = "assets/imgs/9.png"
+    PATH_IMAGE = "assets/imgs/1.png"
     imgOrigin = LoadImageOG(PATH_IMAGE)
     imgGrayscale = GrayImage(imgOrigin)
     imgBinarization = Binarization(imgGrayscale)
     imgMorphology = Morphology(imgBinarization)
+    ShowPlate(imgOrigin, imgMorphology)
     FinderPlate(imgOrigin, imgMorphology)
 
     cv2.waitKey(0)
