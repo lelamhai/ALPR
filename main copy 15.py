@@ -107,26 +107,29 @@ def CheckChars(boxes, imgOG):
     for i, (x, y, w, h) in enumerate(boxes):
         img_crop = imgOG[y:y + h, x:x + w]
         imgGrayscale = GrayImage(img_crop)
+        # Lấy kích thước hiện tại
+        height, width = imgGrayscale.shape[:2]
+
+        # Phóng to gấp đôi
         imgGrayscale = cv2.resize(imgGrayscale, (408, 70))
         imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
-
         cv2.imshow(f"imgThresh {i}", imgThresh)
-
-
-        contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
+     
+        # Vẽ contours
         imgContour = cv2.cvtColor(imgGrayscale, cv2.COLOR_GRAY2BGR)  # chuyển sang BGR để thấy màu
 
         for j, c in enumerate(contours):
             c_x, c_y, c_w, c_h = cv2.boundingRect(c)
-            if 15<c_w<50  and 25<c_h<65:# and c_w*c_h>470:
-                print(f"{j}: {c_w:.2f} : {c_h:.2f} : {c_w*c_h:.2f}")
-                cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 3)
-                
+            print(f"{j}: {c_w:.2f} : {c_h:.2f} : {c_w*c_h:.2f}")
+            if 15<c_w<50 and 40<c_h<65 and  c_w*c_h>1000:
+                cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 255, 0), 1)
+            
 
         # Hiển thị ảnh cho từng vùng
         cv2.imshow(f"Contours Boxes {i}", imgContour)
-        break 
+
 
     return Plate
 
@@ -151,7 +154,7 @@ def DetectCharsInPlate(boxes, imgGrayscale):
 
 
 def main():
-    PATH_IMAGE = "assets/imgs/9.png"
+    PATH_IMAGE = "assets/imgs/4.png"
     imgOrigin = LoadImageOG(PATH_IMAGE)
     imgGrayscale = GrayImage(imgOrigin)
     imgBinarization = Binarization(imgGrayscale)
