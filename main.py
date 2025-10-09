@@ -102,11 +102,12 @@ def FinderPlates(imgProcessing):
 
 
 
-def CheckChars(boxes, imgOG):
+def DetectChars(boxes, imgOG):
     Plate = []
     for i, (x, y, w, h) in enumerate(boxes):
         img_crop = imgOG[y:y + h, x:x + w]
         imgGrayscale = GrayImage(img_crop)
+        
         imgGrayscale = cv2.resize(imgGrayscale, (408, 70))
         imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
 
@@ -122,9 +123,7 @@ def CheckChars(boxes, imgOG):
             if 15<c_w<50  and 25<c_h<65:# and c_w*c_h>470:
                 print(f"{j}: {c_w:.2f} : {c_h:.2f} : {c_w*c_h:.2f}")
                 cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 3)
-                
-
-        # Hiển thị ảnh cho từng vùng
+                Plate.append((x, y, w, h))
         cv2.imshow(f"Contours Boxes {i}", imgContour)
         break 
 
@@ -158,7 +157,7 @@ def main():
     imgFileNoise = FilterNoise(imgBinarization)
     imgMorphology = Morphology(imgFileNoise)
     boxesPlate = FinderPlates(imgMorphology)
-    LicensePlateNumber = CheckChars(boxesPlate, imgOrigin)
+    LicensePlateNumber = DetectChars(boxesPlate, imgOrigin)
 
     print(LicensePlateNumber)
     # cv2.imshow("LicensePlateNumber", LicensePlateNumber[0])
