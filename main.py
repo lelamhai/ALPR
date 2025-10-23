@@ -110,10 +110,13 @@ def FinderPlates(imgProcessing):
 
 
 def SwapBox(chars):
-    for i, (i_x, i_y, i_w, i_h) in enumerate(chars):
-        for j, (j_x, j_y, j_w, j_h) in enumerate(chars):
-            if i_x > j_x:
-                chars[i], chars[j] = chars[j], chars[i]
+    n = len(chars)
+    chars = list(chars)
+    for i in range(n - 1):
+        for j in range(0, n - 1 - i):
+            if chars[j][0] > chars[j + 1][0]:
+                chars[j], chars[j + 1] = chars[j + 1], chars[j]
+
     return chars
                 
 
@@ -127,23 +130,20 @@ def DetectChars(boxes, imgOG):
         imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
         contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
-        imgContour = cv2.cvtColor(imgGrayscale, cv2.COLOR_GRAY2BGR)  # chuyển sang BGR để thấy màu
 
         for j, c in enumerate(contours):
             c_x, c_y, c_w, c_h = cv2.boundingRect(c)
             if 15<c_w<50  and 25<c_h<65:# and c_w*c_h>470:
-                #print(f"{j}: {c_x:.2f} : {c_y:.2f} : {c_w*c_h:.2f}")
-                #cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 3)
                 Plate.append((c_x, c_y, c_w, c_h))
- 
-        #cv2.imshow(f"Contours Boxes {i}", imgContour)
         break 
 
     return Plate, imgGrayscale
 
 def drawboxes(chars, imgCrop):
+    imgCrop = cv2.cvtColor(imgCrop, cv2.COLOR_GRAY2BGR)
     for i, (x, y, w, h) in enumerate(chars):
-        print(f"{i}: w={w:.2f}, h={h:.2f}, area={w*h:.2f}")
+        crop = imgCrop[y:y+h, x:x+w].copy()
+        cv2.imwrite(os.path.join(out_dir, f"plate_{i}.png"), crop)
         cv2.rectangle(imgCrop, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
     cv2.imshow("Contours Boxes", imgCrop)
