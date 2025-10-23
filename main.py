@@ -10,6 +10,14 @@ os.makedirs(out_dir, exist_ok=True)
 
 PIEXL = 15
 
+def LoadKNN():
+    npaClassifications = np.loadtxt("assets/classifications.txt", np.float32)
+    npaFlattenedImages = np.loadtxt("assets/flattened_images.txt", np.float32)
+    npaClassifications = npaClassifications.reshape(
+        (npaClassifications.size, 1))  # reshape numpy array to 1d, necessary to pass to call to train
+    kNearest = cv2.ml.KNearest_create()  # instantiate KNN object
+    kNearest.train(npaFlattenedImages, cv2.ml.ROW_SAMPLE, npaClassifications)
+
 def LoadImageOG(path): 
     imgOG = cv2.imread(path) 
     # cv2.imshow("LoadImageOG", imgOG)
@@ -101,19 +109,22 @@ def FinderPlates(imgProcessing):
     return boxes
 
 
+def SwapBox(chars):
+    for i, (i_x, i_y, i_w, i_h) in enumerate(chars):
+        for j, (j_x, j_y, j_w, j_h) in enumerate(chars):
+            if i_x > j_x:
+                chars[i], chars[j] = chars[j], chars[i]
+    return chars
+                
+
 
 def DetectChars(boxes, imgOG):
     Plate = []
     for i, (x, y, w, h) in enumerate(boxes):
         img_crop = imgOG[y:y + h, x:x + w]
         imgGrayscale = GrayImage(img_crop)
-        
         imgGrayscale = cv2.resize(imgGrayscale, (408, 70))
         imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
-
-        cv2.imshow(f"imgThresh {i}", imgThresh)
-
-
         contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
         imgContour = cv2.cvtColor(imgGrayscale, cv2.COLOR_GRAY2BGR)  # chuyển sang BGR để thấy màu
@@ -121,18 +132,22 @@ def DetectChars(boxes, imgOG):
         for j, c in enumerate(contours):
             c_x, c_y, c_w, c_h = cv2.boundingRect(c)
             if 15<c_w<50  and 25<c_h<65:# and c_w*c_h>470:
-                print(f"{j}: {c_w:.2f} : {c_h:.2f} : {c_w*c_h:.2f}")
-                cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 3)
-                Plate.append((x, y, w, h))
-        cv2.imshow(f"Contours Boxes {i}", imgContour)
+                #print(f"{j}: {c_x:.2f} : {c_y:.2f} : {c_w*c_h:.2f}")
+                #cv2.rectangle(imgContour, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 3)
+                Plate.append((c_x, c_y, c_w, c_h))
+ 
+        #cv2.imshow(f"Contours Boxes {i}", imgContour)
         break 
 
-    return Plate
+    return Plate, imgGrayscale
 
+def drawboxes(chars, imgCrop):
+    for i, (x, y, w, h) in enumerate(chars):
+        print(f"{i}: w={w:.2f}, h={h:.2f}, area={w*h:.2f}")
+        cv2.rectangle(imgCrop, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
-
-    
-
+    cv2.imshow("Contours Boxes", imgCrop)
+ 
 
 def DetectCharsInPlate(boxes, imgGrayscale):
     reader = easyocr.Reader(['en'], gpu=False)
@@ -150,16 +165,26 @@ def DetectCharsInPlate(boxes, imgGrayscale):
 
 
 def main():
-    PATH_IMAGE = "assets/imgs/9.png"
+    PATH_IMAGE = "assets/imgs/3.png"
     imgOrigin = LoadImageOG(PATH_IMAGE)
     imgGrayscale = GrayImage(imgOrigin)
     imgBinarization = Binarization(imgGrayscale)
     imgFileNoise = FilterNoise(imgBinarization)
     imgMorphology = Morphology(imgFileNoise)
     boxesPlate = FinderPlates(imgMorphology)
-    LicensePlateNumber = DetectChars(boxesPlate, imgOrigin)
+    plateChars, imgCrop = DetectChars(boxesPlate, imgOrigin)
+    chars = SwapBox(plateChars)
+    drawboxes(chars, imgCrop)
 
-    print(LicensePlateNumber)
+    
+
+
+
+
+
+
+    
+    # print(LicensePlateNumber)
     # cv2.imshow("LicensePlateNumber", LicensePlateNumber[0])
 
     # result = DetectCharsInPlate(boxesPlate, imgGrayscale)
