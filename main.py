@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 import easyocr
 import os
-out_dir = "outputs/plates"
+out_dir = "data/chars"
 os.makedirs(out_dir, exist_ok=True)
 
 PIEXL = 15
@@ -38,7 +38,7 @@ def Binarization(src):
     thresh_val = int(10 * mean_val)
     _, thresholded = cv2.threshold(bothat, thresh_val, 255, cv2.THRESH_BINARY)
     
-    # cv2.imshow("Binarization", thresholded)
+    #cv2.imshow("Binarization", thresholded)
     return thresholded
 
 
@@ -121,12 +121,14 @@ def SwapBox(chars):
                 
 
 
-def DetectChars(boxes, imgOG):
+def DetectPlate(boxes, imgOG, imgBinarization):
     Plate = []
     for i, (x, y, w, h) in enumerate(boxes):
         img_crop = imgOG[y:y + h, x:x + w]
+        img_Binarization = imgBinarization[y:y + h, x:x + w]
         imgGrayscale = GrayImage(img_crop)
         imgGrayscale = cv2.resize(imgGrayscale, (408, 70))
+        img_Binarization = cv2.resize(img_Binarization, (408, 70))
         imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
         contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
@@ -137,19 +139,20 @@ def DetectChars(boxes, imgOG):
                 Plate.append((c_x, c_y, c_w, c_h))
         break 
 
-    return Plate, imgGrayscale
+    return Plate, imgGrayscale, img_Binarization
 
-def drawboxes(chars, imgCrop):
+def drawboxes(chars, imgCrop, imgBinarization):
     imgCrop = cv2.cvtColor(imgCrop, cv2.COLOR_GRAY2BGR)
+
     for i, (x, y, w, h) in enumerate(chars):
-        crop = imgCrop[y:y+h, x:x+w].copy()
-        cv2.imwrite(os.path.join(out_dir, f"plate_{i}.png"), crop)
+        char = imgBinarization[y:y+h, x:x+w].copy()
+        cv2.imwrite(os.path.join(out_dir, f"char{i}.png"), char)
         cv2.rectangle(imgCrop, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
     cv2.imshow("Contours Boxes", imgCrop)
  
 
-def DetectCharsInPlate(boxes, imgGrayscale):
+def DetectCharsInPlate(boxes, imgGrayscale, ):
     reader = easyocr.Reader(['en'], gpu=False)
     results = []
 
@@ -172,9 +175,9 @@ def main():
     imgFileNoise = FilterNoise(imgBinarization)
     imgMorphology = Morphology(imgFileNoise)
     boxesPlate = FinderPlates(imgMorphology)
-    plateChars, imgCrop = DetectChars(boxesPlate, imgOrigin)
+    plateChars, imgCrop, img_Binarization = DetectPlate(boxesPlate, imgOrigin, imgBinarization)
     chars = SwapBox(plateChars)
-    drawboxes(chars, imgCrop)
+    drawboxes(chars, imgCrop, img_Binarization)
 
     
 
