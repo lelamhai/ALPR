@@ -108,8 +108,18 @@ def FinderPlates(imgProcessing):
                     boxes.append((x, y, w, h))
     return boxes
 
+def SwapY(chars):
+    n = len(chars)
+    chars = list(chars)
+    for i in range(n - 1):
+        for j in range(0, n - 1 - i):
+            if chars[j][1] > chars[j + 1][1]:
+                chars[j], chars[j + 1] = chars[j + 1], chars[j]
 
-def SwapBox(chars):
+    return chars
+
+
+def SwapX(chars):
     n = len(chars)
     chars = list(chars)
     for i in range(n - 1):
@@ -143,28 +153,33 @@ def DetectPlate(boxes, imgOG, imgBinarization):
 
 def drawboxes(chars, imgCrop, imgBinarization):
     imgCrop = cv2.cvtColor(imgCrop, cv2.COLOR_GRAY2BGR)
-
+    listChars = []
     for i, (x, y, w, h) in enumerate(chars):
         char = imgBinarization[y:y+h, x:x+w].copy()
+        listChars.append(char)
         cv2.imwrite(os.path.join(out_dir, f"char{i}.png"), char)
         cv2.rectangle(imgCrop, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
     cv2.imshow("Contours Boxes", imgCrop)
+    return listChars
  
 
-def DetectCharsInPlate(boxes, imgGrayscale, ):
-    reader = easyocr.Reader(['en'], gpu=False)
-    results = []
+def DetectChars(listChars):
+    RESIZED_IMAGE_WIDTH = 20
+    RESIZED_IMAGE_HEIGHT = 30
+    npaClassifications = np.loadtxt("assets/KNN/classifications.txt", np.float32)
+    npaFlattenedImages = np.loadtxt("assets/KNN/flattened_images.txt", np.float32)
+    npaClassifications = npaClassifications.reshape((npaClassifications.size, 1))  # reshape numpy array to 1d, necessary to pass to call to train
+    kNearest = cv2.ml.KNearest_create()  # instantiate KNN object
+    kNearest.train(npaFlattenedImages, cv2.ml.ROW_SAMPLE, npaClassifications)
 
-    for idx, (x, y, w, h) in enumerate(boxes):
-        img_crop = imgGrayscale[y:y + h, x:x + w]
-        result = reader.readtext(img_crop)
-
-        if result:
-            full_text = " ".join([res[-2] for res in result])
-            results.append((full_text, img_crop))
-
-    return results
+    for char in listChars:
+        imgROIResized = cv2.resize(char, (RESIZED_IMAGE_WIDTH, RESIZED_IMAGE_HEIGHT))  # resize image
+        npaROIResized = imgROIResized.reshape((1, RESIZED_IMAGE_WIDTH * RESIZED_IMAGE_HEIGHT))
+        npaROIResized = np.float32(npaROIResized)
+        _, npaResults, neigh_resp, dists = kNearest.findNearest(npaROIResized,k=3)  # call KNN function find_nearest;
+        strCurrentChar = str(chr(int(npaResults[0][0])))  # ASCII of characters
+        print(strCurrentChar)
 
 
 def main():
@@ -176,24 +191,9 @@ def main():
     imgMorphology = Morphology(imgFileNoise)
     boxesPlate = FinderPlates(imgMorphology)
     plateChars, imgCrop, img_Binarization = DetectPlate(boxesPlate, imgOrigin, imgBinarization)
-    chars = SwapBox(plateChars)
-    drawboxes(chars, imgCrop, img_Binarization)
-
-    
-
-
-
-
-
-
-    
-    # print(LicensePlateNumber)
-    # cv2.imshow("LicensePlateNumber", LicensePlateNumber[0])
-
-    # result = DetectCharsInPlate(boxesPlate, imgGrayscale)
-    # for i, (text, crop) in enumerate(result):
-    #     print(f"Plate {i}: {text}")
-    #     cv2.imshow(f"Crop {i}", crop)
+    plateChars = SwapX(plateChars)
+    listChars = drawboxes(plateChars, imgCrop, img_Binarization)
+    DetectChars(listChars)
 
     
 
