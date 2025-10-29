@@ -90,7 +90,7 @@ def Morphology(imgBinarization):
 def FinderPlates(imgProcessing):
     width, height = np.array(imgProcessing).shape
     contours, hierarchy = cv2.findContours(imgProcessing, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key = cv2.contourArea, reverse = True)
+    contours = sorted(contours, key = cv2.contourArea, reverse = True)[:5]
     boxes = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
@@ -102,25 +102,17 @@ def FinderPlates(imgProcessing):
         
         radio =  (width*height)/area
 
+        label = "Khong"
+        color = (0, 0, 0)
         if aspect_ratio > 2.5:
             if 30 < radio < 270:
                 if 100 < w < 550 and 40 < h < 250:
-                   boxes.append((x, y, w, h, 1))
+                   boxes.append((x, y, w, h))
         else:
             if 30 < radio < 60:
                 if 100 < w < 250 and 80 < h < 150:
-                    boxes.append((x, y, w, h, 2))
+                    boxes.append((x, y, w, h))
     return boxes
-
-def SwapY(chars):
-    n = len(chars)
-    chars = list(chars)
-    for i in range(n - 1):
-        for j in range(0, n - 1 - i):
-            if chars[j][1] > chars[j + 1][1]:
-                chars[j], chars[j + 1] = chars[j + 1], chars[j]
-
-    return chars
 
 
 def SwapX(chars):
@@ -133,46 +125,29 @@ def SwapX(chars):
 
     return chars
                 
+def CovertBlackToWhite(image):
+    image_gray = GrayImage(image)
+    image_blurred = cv2.GaussianBlur(image_gray, (7, 7,), 0)
+    adaptive_thresh = cv2.adaptiveThreshold(image_blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 21, 10)
+    inverted = cv2.bitwise_not(adaptive_thresh)
+    cv2.imshow("CovertBlackToWhite", inverted)
+    return inverted
 
-
-def DetectPlate(boxes, imgOG, imgBinarization):
+def CheckLicensePlate(boxes, imgOG, imgBinarization):
     Plate = []
-    Line = 1
-    for i, (x, y, w, h, option) in enumerate(boxes):
-        img_crop = imgOG[y:y + h, x:x + w]
+    for i, (x, y, w, h) in enumerate(boxes):
         img_Binarization = imgBinarization[y:y + h, x:x + w]
-        imgGrayscale = GrayImage(img_crop)
-        
-        if option==1:
-            img_crop = cv2.resize(imgGrayscale, (408, 70))
-            imgGrayscale = cv2.resize(imgGrayscale, (408, 70))
-            img_Binarization = cv2.resize(img_Binarization, (408, 70))
-            Line = 1
-
-        else:
-            img_crop = cv2.resize(imgGrayscale, (204, 112))
-            imgGrayscale = cv2.resize(imgGrayscale, (204, 112))
-            img_Binarization = cv2.resize(img_Binarization, (204, 112))
-            Line = 2
-        imgThresh = cv2.adaptiveThreshold(imgGrayscale, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 19, 9)
-        contours, hierarchy = cv2.findContours(imgThresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)
-
-        imgCrop = cv2.cvtColor(img_crop, cv2.COLOR_GRAY2BGR)
+        img_Crop = imgOG[y:y + h, x:x + w]
+        contours, hierarchy = cv2.findContours(img_Binarization, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True) [:10]
+        cv2.imshow(f"{i}", img_Binarization)
 
         for j, c in enumerate(contours):
             c_x, c_y, c_w, c_h = cv2.boundingRect(c)
-            #print(f"w={c_w}  h={c_h}")
-            #cv2.rectangle(imgCrop, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 1)
-            if 15<c_w<50  and 25<c_h<65:# and c_w*c_h>470:
-                print(f"w={c_w}  h={c_h} x={c_x}  y={c_y}")
-                cv2.rectangle(imgCrop, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 1)
-                Plate.append((c_x, c_y, c_w, c_h))
-
-        cv2.imshow("imgGrayscale", imgCrop)
-        break 
-
-    return Plate, imgGrayscale, img_Binarization, Line
+            print(f"w={w} h={h}")
+            cv2.rectangle(img_Crop, (c_x, c_y), (c_x + c_w, c_y + c_h), (0, 0, 255), 1)
+        print("=======")
+        cv2.imshow(f"License Plate Detection {i}", img_Crop)
 
 def drawboxes(chars, imgCrop, imgBinarization):
     imgCrop = cv2.cvtColor(imgCrop, cv2.COLOR_GRAY2BGR)
@@ -188,37 +163,23 @@ def drawboxes(chars, imgCrop, imgBinarization):
  
 
 def DetectChars(listChars):
-    RESIZED_IMAGE_WIDTH = 20
-    RESIZED_IMAGE_HEIGHT = 30
-    npaClassifications = np.loadtxt("assets/KNN/classifications.txt", np.float32)
-    npaFlattenedImages = np.loadtxt("assets/KNN/flattened_images.txt", np.float32)
-    npaClassifications = npaClassifications.reshape((npaClassifications.size, 1))  # reshape numpy array to 1d, necessary to pass to call to train
-    kNearest = cv2.ml.KNearest_create()  # instantiate KNN object
-    kNearest.train(npaFlattenedImages, cv2.ml.ROW_SAMPLE, npaClassifications)
-
-    for char in listChars:
-        imgROIResized = cv2.resize(char, (RESIZED_IMAGE_WIDTH, RESIZED_IMAGE_HEIGHT))  # resize image
-        npaROIResized = imgROIResized.reshape((1, RESIZED_IMAGE_WIDTH * RESIZED_IMAGE_HEIGHT))
-        npaROIResized = np.float32(npaROIResized)
-        _, npaResults, neigh_resp, dists = kNearest.findNearest(npaROIResized,k=3)  # call KNN function find_nearest;
-        strCurrentChar = str(chr(int(npaResults[0][0])))  # ASCII of characters
-        print(strCurrentChar)
+    for i, char in enumerate(listChars):
+        cv2.imshow(f"Char_{i}",char)
 
 
 def main():
-    PATH_IMAGE = "assets/imgs/13.png"
+    PATH_IMAGE = "assets/imgs/3.png"
     imgOrigin = LoadImageOG(PATH_IMAGE)
     imgGrayscale = GrayImage(imgOrigin)
     imgBinarization = Binarization(imgGrayscale)
     imgFileNoise = FilterNoise(imgBinarization)
     imgMorphology = Morphology(imgFileNoise)
     boxesPlate = FinderPlates(imgMorphology)
-    plateChars, imgCrop, img_Binarization, Line = DetectPlate(boxesPlate, imgOrigin, imgBinarization)
-    plateChars = SwapX(plateChars)
-    if Line == 2:
-        plateChars = SwapY(plateChars)
-    listChars = drawboxes(plateChars, imgCrop, img_Binarization)
-    DetectChars(listChars)
+    imgWB = CovertBlackToWhite(imgOrigin)
+    CheckLicensePlate(boxesPlate, imgOrigin, imgWB)
+    # plateChars = SwapX(plateChars)
+    # listChars = drawboxes(plateChars, imgCrop, img_Binarization)
+    # DetectChars(listChars)
 
     
 
